@@ -12,7 +12,7 @@ def set_credentials():
         - sp: a spotipy.client.Spotify object for calling the API
     """
     # sets my developer credentials for accessing the Spotify API
-    client_credentials_manager = SpotifyClientCredentials(client_id='4f851eec64194e3e87195933f6360226', client_secret='9a521ac9a1fd4ade87aa5743efe55620')
+    client_credentials_manager = SpotifyClientCredentials(client_id='', client_secret='') # insert ID and secret
     sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
     sp.trace = False
     return sp
@@ -187,7 +187,7 @@ def send_email(new_music_artists):
         smtp_server = "smtp.gmail.com"
         sender_email = "email.notif.artistupdate@gmail.com"  # the sender address
         receiver_email = "email.notif.artistupdate@gmail.com"  # the receiver address
-        password = "_gUq2^d.~!fe+" # sender address password
+        password = "" # sender address password, insert password
         message = "From: email.notif.artistupdate@gmail.com\n" \
         "To: email.notif.artistupdate@gmail.com\n" \
         "Subject: New music on Spotify\n\n" \
