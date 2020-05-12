@@ -1,0 +1,7 @@
+(Spotify Username)
+(Spotify App Client ID)
+(Spotify App Secret)
+(Spotify App Redirect URI)
+(Sender Email Address)
+(Receiver Email Address)
+(Sender Email Address Password)
