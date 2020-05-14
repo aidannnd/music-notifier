@@ -62,8 +62,8 @@ def get_latest(artist, album_type, sp):
     results = sp.artist_albums(artist, album_type, country="US") # calls API and gets a dict
     for item in results["items"]:
         if len(items) < 5: # get up to last 5 items of album_type for artist
-            if item["name"] not in items:
-                items.append(item["name"])
+            if item["id"] not in items:
+                items.append(item["id"])
         else:
             break
     return items
@@ -108,9 +108,10 @@ def update_followed_artists(sp):
     else:
         return get_new_music(saved_data, api_data) # compare data indexed to new data from api and collect new music
 
-def send_email(new_music):
+def send_email(new_music, sp):
     """
         Sends an email to the provided address with formatted text dexcribing artists with new albums or singles.
+        It will also call the API once for each item of new music to convert the stored album_id to a single/album name
         :param new_music: a dict of artists and their new music
     """
     # create formatted output for the email
@@ -118,9 +119,9 @@ def send_email(new_music):
     for artist in new_music.keys():
         music_formatted += new_music[artist]["name"] + ": "
         for album in new_music[artist]["albums"]:
-            music_formatted += album + ", "
+            music_formatted += sp.album(album)["name"] + ", " # API call
         for single in new_music[artist]["singles"]:
-            music_formatted += single + ", "
+            music_formatted += sp.album(single)["name"] + ", " # API call
         music_formatted = music_formatted[:-2] # remove last ", "
         music_formatted += '\n'
 
@@ -153,4 +154,4 @@ if __name__ == '__main__':
     new_music = update_followed_artists(sp)
 
     if new_music is not None: # there was new music found
-        send_email(new_music)
+        send_email(new_music, sp)
