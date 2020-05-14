@@ -2,6 +2,7 @@ import spotipy
 import spotipy.util as util
 import smtplib, ssl # for email sending and encryption
 import json
+import os
 
 def set_credentials():
     """
@@ -9,7 +10,9 @@ def set_credentials():
         :return: sp (Spotipy object)
     """
     # get info from app_Info.txt
-    appfile = open("app_info.txt")
+    path = os.path.dirname(os.path.abspath(__file__)) # adds the path up to the file for running different working directory settings
+    file_name = os.path.join(path, "app_info.txt")
+    appfile = open(file_name)
 
     username = appfile.readline().strip()
     client_id = appfile.readline().strip()
@@ -43,7 +46,9 @@ def get_new_music(saved_data, api_data):
                 new_music[artist]["singles"] = list(set(api_data[artist]["singles"]) - set(saved_data[artist]["singles"])) # set difference
 
     if new_music != {}: # there was some new music found
-        with open("data.txt", 'w') as out_file:
+        path = os.path.dirname(os.path.abspath(__file__)) # adds the path up to the file for running different working directory settings
+        file_name = os.path.join(path, "data.txt")
+        with open(file_name, 'w') as out_file:
             json.dump(api_data, out_file) # update indexed data with up-to-date data
 
     return new_music
@@ -62,8 +67,8 @@ def get_latest(artist, album_type, sp):
     results = sp.artist_albums(artist, album_type, country="US") # calls API and gets a dict
     for item in results["items"]:
         if len(items) < 5: # get up to last 5 items of album_type for artist
-            if item["name"] not in items:
-                items.append(item["name"])
+            if item["id"] not in items:
+                items.append(item["id"])
         else:
             break
     return items
@@ -95,22 +100,25 @@ def update_followed_artists(sp):
             api_data[artist["id"]]["albums"] = get_latest(artist["id"], "album", sp)
 
     # try to read the data from data.txt
-    with open("data.txt") as json_file:
-        try:
+    path = os.path.dirname(os.path.abspath(__file__)) # adds the path up to the file for running different working directory settings
+    file_name = os.path.join(path, "data.txt")
+    try:
+        with open(file_name) as json_file:
             saved_data = json.load(json_file)
-        except: # file is empty or not formatted correctly
-            saved_data = {}
+    except: # file is empty, not formatted correctly, or does not exist
+        saved_data = {}
 
-    if saved_data == {}: # likely a first time user so no index info yet
+    if saved_data == {}: # likely a first time user so no indexed info yet
         # write data (this path will not trigger a notification)
-        with open("data.txt", 'w') as out_file:
+        with open(file_name, 'w') as out_file:
             json.dump(api_data, out_file)
     else:
         return get_new_music(saved_data, api_data) # compare data indexed to new data from api and collect new music
 
-def send_email(new_music):
+def send_email(new_music, sp):
     """
         Sends an email to the provided address with formatted text dexcribing artists with new albums or singles.
+        It will also call the API once for each item of new music to convert the stored album_id to a single/album name
         :param new_music: a dict of artists and their new music
     """
     # create formatted output for the email
@@ -118,16 +126,18 @@ def send_email(new_music):
     for artist in new_music.keys():
         music_formatted += new_music[artist]["name"] + ": "
         for album in new_music[artist]["albums"]:
-            music_formatted += album + ", "
+            music_formatted += sp.album(album)["name"] + ", " # API call
         for single in new_music[artist]["singles"]:
-            music_formatted += single + ", "
+            music_formatted += sp.album(single)["name"] + ", " # API call
         music_formatted = music_formatted[:-2] # remove last ", "
         music_formatted += '\n'
 
     # create a secure SSL context
     context = ssl.create_default_context()
 
-    appfile = open("app_info.txt")
+    path = os.path.dirname(os.path.abspath(__file__)) # adds the path up to the file for running different working directory settings
+    file_name = os.path.join(path, "app_info.txt")
+    appfile = open(file_name)
     lines = appfile.readlines() # get contents of app_info as a list
     appfile.close()
 
@@ -152,5 +162,5 @@ if __name__ == '__main__':
     
     new_music = update_followed_artists(sp)
 
-    if new_music is not None: # there was new music found
-        send_email(new_music)
+    if new_music is not None and new_music != {}: # there was new music found
+        send_email(new_music, sp)
