@@ -3,5 +3,6 @@
 (Spotify App Secret)
 (Spotify App Redirect URI)
 (Sender Email Address)
-(Receiver Email Address)
 (Sender Email Address Password)
+(Receiver Email Address)
+-DO NOT MODIFY BELOW THIS LINE-
