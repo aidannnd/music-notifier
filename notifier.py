@@ -95,13 +95,13 @@ def update_followed_artists(sp):
             api_data[artist["id"]]["albums"] = get_latest(artist["id"], "album", sp)
 
     # try to read the data from data.txt
-    with open("data.txt") as json_file:
-        try:
+    try:
+        with open("data.txt") as json_file:
             saved_data = json.load(json_file)
-        except: # file is empty or not formatted correctly
-            saved_data = {}
+    except: # file is empty, not formatted correctly, or does not exist
+        saved_data = {}
 
-    if saved_data == {}: # likely a first time user so no index info yet
+    if saved_data == {}: # likely a first time user so no indexed info yet
         # write data (this path will not trigger a notification)
         with open("data.txt", 'w') as out_file:
             json.dump(api_data, out_file)
