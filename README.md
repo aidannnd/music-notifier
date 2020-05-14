@@ -6,7 +6,7 @@ This Python script will alert the user about new music from artists they follow 
 ## How To Use
 
 1. Install Spotipy
-2. Create a new app on the Spotify Developers Dashboard and give it a Redirect URI (I use "http://localhost/")
+2. Create a new app on the Spotify Developers Dashboard and give it a Redirect URI (I use "http://localhost:8080/")
 3. Create a new Gmail account for sending emails (enable third-party app access)
 4. Replace the lines of app_info.txt with your information
 	1. Your Spotify username will be a string of numbers if you signed up with Facebook, otherwise, it will be the username you use to log in
