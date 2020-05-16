@@ -62,24 +62,24 @@ def get_new_music(saved_data, api_data, sp):
             # see if there is a discrepancy between the two regarding the saved albums/singles
             if sorted(api_data[artist]["singles"]) != sorted(saved_data[artist]["singles"]) or \
                 sorted(api_data[artist]["albums"]) != sorted(saved_data[artist]["albums"]): # we use sorted here because sometimes the order of album ids from the api changes
-                # at this point we know the artist either has new music, or the id of one of their albums/singles has changed
-                # if the id has changed that indicates mixing changes for the songs, we do not want to add it to new music in that case
+                # at this point we know the artist either has new music, or one their albums/singles has gotten updated 
+                # if an album has been updated that indicates mixing changes for the songs, we do not want to add it to new music in that case
                 new_albums = list(set(api_data[artist]["albums"]) - set(saved_data[artist]["albums"])) # set difference
                 new_singles = list(set(api_data[artist]["singles"]) - set(saved_data[artist]["singles"])) # set difference
                 
-                api_album_names = [sp.album(album_id)["name"] for album_id in api_data[artist]["albums"]] # turn list of ids from api to names
-                api_single_names = [sp.album(album_id)["name"] for album_id in api_data[artist]["singles"]]
+                saved_album_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["albums"]] # turn list of ids from api to names
+                saved_single_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["singles"]]
 
-                # remove albums whose id has changed but whose name has not
+                # remove albums who have the same name as another saved album
                 for id in new_albums[:]: # for id in a copy of new_albums
                     name = sp.album(id)["name"]
-                    if name in api_album_names: # the name has not changed
+                    if name in saved_album_names: # the name has previously been indexed
                         new_albums.remove(id)
 
-                # remove singles whose id has changed but whose name has not
+                # remove singles who have the same name as another saved single
                 for id in new_singles[:]: # for id in a copy of new_albums
                     name = sp.album(id)["name"]
-                    if name in api_single_names: # the name has not changed
+                    if name in saved_single_names: # the name has previously been indexed
                         new_singles.remove(id)
 
                 if new_albums + new_singles != []: # new music was found, add it to the new_music dict
