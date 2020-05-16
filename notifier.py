@@ -47,28 +47,50 @@ def set_credentials(username, client_id, client_secret, redirect_uri):
     sp = spotipy.Spotify(token)
     return sp
 
-def get_new_music(saved_data, api_data):
+def get_new_music(saved_data, api_data, sp):
     """
         Compares saved_data and api_data, compiles a dict of artists with new music.
         :param saved_data: a dict of indexed data from data.txt
         :param api_data: a dict of up-to-date data from the API
+        :param sp: the Spotipy object
         :return: new_music (a dict of new music)
     """
     new_music = {} # a dict to represent artists with new music with titles of the new singles/albums, structured differently than other dicts like api_data
 
     for artist in api_data.keys(): # artist is an artist_id in this case
         if artist in saved_data.keys(): # artist has been previously indexed
-            if api_data[artist] != saved_data[artist]: # there is a discrepancy between the two regarding the saved albums/singles for the artist
-                new_music[artist] = {}
-                new_music[artist]["name"] = api_data[artist]["name"]
-                # get a list of items that appear in api_data but not in saved_data, add it to new_music
-                new_music[artist]["albums"] = list(set(api_data[artist]["albums"]) - set(saved_data[artist]["albums"])) # set difference
-                new_music[artist]["singles"] = list(set(api_data[artist]["singles"]) - set(saved_data[artist]["singles"])) # set difference
+            # see if there is a discrepancy between the two regarding the saved albums/singles
+            if sorted(api_data[artist]["singles"]) != sorted(saved_data[artist]["singles"]) or \
+                sorted(api_data[artist]["albums"]) != sorted(saved_data[artist]["albums"]): # we use sorted here because sometimes the order of album ids from the api changes
+                # at this point we know the artist either has new music, or one their albums/singles has gotten updated 
+                # if an album has been updated that indicates mixing changes for the songs, we do not want to add it to new music in that case
+                new_albums = list(set(api_data[artist]["albums"]) - set(saved_data[artist]["albums"])) # set difference
+                new_singles = list(set(api_data[artist]["singles"]) - set(saved_data[artist]["singles"])) # set difference
+                
+                saved_album_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["albums"]] # turn list of ids from api to names
+                saved_single_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["singles"]]
 
-    if new_music != {}: # there was some new music found
-        file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.txt") # adds the path up to the file for running different working directory settings
-        with open(file_name, 'w') as out_file:
-            json.dump(api_data, out_file) # update indexed data with up-to-date data
+                # remove albums who have the same name as another saved album
+                for id in new_albums[:]: # for id in a copy of new_albums
+                    name = sp.album(id)["name"]
+                    if name in saved_album_names: # the name has previously been indexed
+                        new_albums.remove(id)
+
+                # remove singles who have the same name as another saved single
+                for id in new_singles[:]: # for id in a copy of new_albums
+                    name = sp.album(id)["name"]
+                    if name in saved_single_names: # the name has previously been indexed
+                        new_singles.remove(id)
+
+                if new_albums + new_singles != []: # new music was found, add it to the new_music dict
+                    new_music[artist] = {}
+                    new_music[artist]["name"] = api_data[artist]["name"]
+                    new_music[artist]["albums"] = new_albums
+                    new_music[artist]["singles"] = new_singles
+
+    file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.txt") # adds the path up to the file for running different working directory settings
+    with open(file_name, 'w') as out_file:
+        json.dump(api_data, out_file) # update indexed data with up-to-date data
 
     return new_music
 
@@ -130,7 +152,7 @@ def update_followed_artists(sp):
         with open(file_name, 'w') as out_file:
             json.dump(api_data, out_file)
     else:
-        return get_new_music(saved_data, api_data) # compare data indexed to new data from api and collect new music
+        return get_new_music(saved_data, api_data, sp) # compare data indexed to new data from api and collect new music
 
 def send_email(sender_email, sender_password, receiver_email, playlist_id):
     """
