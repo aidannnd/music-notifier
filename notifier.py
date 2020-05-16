@@ -58,17 +58,18 @@ def get_new_music(saved_data, api_data):
 
     for artist in api_data.keys(): # artist is an artist_id in this case
         if artist in saved_data.keys(): # artist has been previously indexed
-            if api_data[artist] != saved_data[artist]: # there is a discrepancy between the two regarding the saved albums/singles for the artist
+            # see if there is a discrepancy between the two regarding the saved albums/singles
+            if sorted(api_data[artist]["singles"]) != sorted(saved_data[artist]["singles"]) or \
+                sorted(api_data[artist]["albums"]) != sorted(saved_data[artist]["albums"]): # we use sorted here because sometimes the order of album ids from the api changes
                 new_music[artist] = {}
                 new_music[artist]["name"] = api_data[artist]["name"]
                 # get a list of items that appear in api_data but not in saved_data, add it to new_music
                 new_music[artist]["albums"] = list(set(api_data[artist]["albums"]) - set(saved_data[artist]["albums"])) # set difference
                 new_music[artist]["singles"] = list(set(api_data[artist]["singles"]) - set(saved_data[artist]["singles"])) # set difference
 
-    if new_music != {}: # there was some new music found
-        file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.txt") # adds the path up to the file for running different working directory settings
-        with open(file_name, 'w') as out_file:
-            json.dump(api_data, out_file) # update indexed data with up-to-date data
+    file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.txt") # adds the path up to the file for running different working directory settings
+    with open(file_name, 'w') as out_file:
+        json.dump(api_data, out_file) # update indexed data with up-to-date data
 
     return new_music
 
