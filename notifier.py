@@ -67,18 +67,18 @@ def get_new_music(saved_data, api_data, sp):
                 new_albums = list(set(api_data[artist]["albums"]) - set(saved_data[artist]["albums"])) # set difference
                 new_singles = list(set(api_data[artist]["singles"]) - set(saved_data[artist]["singles"])) # set difference
                 
-                saved_album_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["albums"]] # turn list of ids from api to names
-                saved_single_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["singles"]]
+                saved_album_names = [sp.album(album_id)["name"].lower() for album_id in saved_data[artist]["albums"]] # turn list of ids from api to names
+                saved_single_names = [sp.album(album_id)["name"].lower() for album_id in saved_data[artist]["singles"]]
 
                 # remove albums who have the same name as another saved album
                 for id in new_albums[:]: # for id in a copy of new_albums
-                    name = sp.album(id)["name"]
+                    name = sp.album(id)["name"].lower()
                     if name in saved_album_names: # the name has previously been indexed
                         new_albums.remove(id)
 
                 # remove singles who have the same name as another saved single
                 for id in new_singles[:]: # for id in a copy of new_albums
-                    name = sp.album(id)["name"]
+                    name = sp.album(id)["name"].lower()
                     if name in saved_single_names: # the name has previously been indexed
                         new_singles.remove(id)
 
@@ -104,14 +104,8 @@ def get_latest(artist, album_type, sp):
         :param sp: the Spotipy object
         :return: items (a list of up to 5 items of album_type requested for the artist)
     """
-    items = []
-    results = sp.artist_albums(artist, album_type, country="US") # calls API and gets a dict
-    for item in results["items"]:
-        if len(items) == 5: # get up to last 5 items of album_type for artist
-            break
-        if item["id"] not in items:
-            items.append(item["id"])
-    return items
+    results = sp.artist_albums(artist, album_type, country="US", limit=5) # calls API and gets a dict
+    return [item["id"] for item in results["items"]]
 
 def update_followed_artists(sp):
     """
