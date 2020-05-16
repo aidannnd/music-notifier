@@ -1,6 +1,8 @@
 import spotipy
 import spotipy.util as util
 import smtplib, ssl # for email sending and encryption
+from email.mime.text import MIMEText # for sending email with a hyperlink
+from email.mime.multipart import MIMEMultipart
 import json
 import os
 
@@ -130,45 +132,44 @@ def update_followed_artists(sp):
     else:
         return get_new_music(saved_data, api_data) # compare data indexed to new data from api and collect new music
 
-def send_email(new_music, sender_email, sender_password, receiver_email, playlist_id, sp):
+def send_email(sender_email, sender_password, receiver_email, playlist_id):
     """
-        Sends an email to the provided address with formatted text dexcribing artists with new albums or singles.
-        It will also call the API once for each item of new music to convert the stored album_id to a single/album name.
-        :param new_music: a dictionary of new music from update_followed_artists()
+        Sends an email to the provided address with a link to the user's playlist.
+        This email simply serves as a notification.
         :param sender_email: the address the email will be sent from
         :param sender_password: the password for the sender_email
         :param receiver_email: the address that will receive the email sent from sender_email
-        :param sp: the Spotipy object
+        :param playlist_id: id of playlist to link in email
     """
-    # create formatted output for the email
-    music_formatted = ""
-    for artist in new_music.keys():
-        music_formatted += new_music[artist]["name"] + ": "
-        for album in new_music[artist]["albums"]:
-            music_formatted += sp.album(album)["name"] + ", " # API call
-        for single in new_music[artist]["singles"]:
-            music_formatted += sp.album(single)["name"] + ", " # API call
-        music_formatted = music_formatted[:-2] # remove last ", "
-        music_formatted += '\n'
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "New music on Spotify"
+    message["From"] = sender_email
+    message["To"] = receiver_email
 
-    playlist_link = "spotify:playlist:" + playlist_id
+    playlist_link = "https://open.spotify.com/playlist/" + playlist_id
 
-    # create a secure SSL context
+    # create the plain-text and HTML versions of the message
+    text = "We've detected new music!\nCheck it out in your New Music playlist on Spotify"
+    html = """\
+    <html>
+        <body>
+            <p>We've detected new music!<br>
+            Check it out in your <a href="{:s}">New Music playlist</a></p>
+        </body>
+    </html>
+    """.format(playlist_link)
+
+    # turn the messages into plain/html MIMEText objects
+    part1 = MIMEText(text, "plain")
+    part2 = MIMEText(html, "html")
+
+    message.attach(part1)
+    message.attach(part2)
+
     context = ssl.create_default_context()
-
-    # for SSL the default port is 465
-    with smtplib.SMTP_SSL("smtp.gmail.com", port=465, context=context) as server:
-        smtp_server = "smtp.gmail.com"
-        message = "From: {:s}\n" \
-        "To: {:s}\n" \
-        "Subject: New music on Spotify\n\n" \
-        "We've detected new music!\n\n{:s}" \
-        "\nCheck it out in your New Music playlist: {:s}".format(sender_email, receiver_email, music_formatted, playlist_link)
-
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(smtp_server, port=465, context=context) as server:
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, message)
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, receiver_email, message.as_string())
 
 def add_to_playlist(username, playlist_id, new_music, app_info, sp):
     """
@@ -222,7 +223,9 @@ if __name__ == '__main__':
 
     if new_music is not None and new_music != {}: # there was new music found
         new_playlist_id = add_to_playlist(app_info[0], app_info[8], new_music, app_info, sp) # add new music to playlist
-        if new_playlist_id is not None: # update playlist_id if necessary
-            app_info[8] = new_playlist_id 
         
-        send_email(new_music, app_info[4], app_info[5], app_info[6], app_info[8], sp) # send an email
+        if (app_info[4] != "(Sender Email Address *Optional)"): # user has filled in information for sending email
+            if new_playlist_id is not None: # update playlist_id if necessary
+                app_info[8] = new_playlist_id 
+            
+            send_email(app_info[4], app_info[5], app_info[6], app_info[8]) # send an email
