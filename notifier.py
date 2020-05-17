@@ -3,6 +3,7 @@ import spotipy.util as util
 import smtplib, ssl # for email sending and encryption
 from email.mime.text import MIMEText # for sending email with a hyperlink
 from email.mime.multipart import MIMEMultipart
+import base64
 import json
 import os
 
@@ -42,7 +43,7 @@ def set_credentials(username, client_id, client_secret, redirect_uri):
         :param redirect_uri: Spotify app redirect_uri from app_info.txt
         :return: sp (a Spotipy object)
     """
-    scope = "playlist-modify-private playlist-modify-public user-follow-read"
+    scope = "playlist-modify-private playlist-modify-public user-follow-read ugc-image-upload"
     token = util.prompt_for_user_token(username, scope, client_id, client_secret, redirect_uri)
     sp = spotipy.Spotify(token)
     return sp
@@ -218,8 +219,14 @@ def add_to_playlist(username, playlist_id, new_music, app_info, sp):
         for i in range(0, 8):
             app_info_fp.write(app_info[i] + '\n')
 
-        # call the API and create a playlist then return a dict of related info
+        # call the API and create a private playlist then return a dict of related info
         playlist = sp.user_playlist_create(username, "New Music", False, "New music from music notifier, checked daily and updated here.")
+        
+        # add a playlist cover
+        file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "playlist_cover.jpg")
+        with open(file_name, "rb") as img_file:
+            image_data = base64.b64encode(img_file.read())
+            sp.playlist_upload_cover_image(playlist["id"], image_data)
         
         app_info_fp.write(playlist["id"])
         app_info_fp.close()
