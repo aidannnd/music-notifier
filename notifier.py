@@ -3,6 +3,7 @@ import spotipy.util as util
 import smtplib, ssl # for email sending and encryption
 from email.mime.text import MIMEText # for sending email with a hyperlink
 from email.mime.multipart import MIMEMultipart
+import base64
 import json
 import os
 
@@ -42,17 +43,16 @@ def set_credentials(username, client_id, client_secret, redirect_uri):
         :param redirect_uri: Spotify app redirect_uri from app_info.txt
         :return: sp (a Spotipy object)
     """
-    scope = "playlist-modify-private playlist-modify-public user-follow-read"
+    scope = "playlist-modify-private playlist-modify-public user-follow-read ugc-image-upload"
     token = util.prompt_for_user_token(username, scope, client_id, client_secret, redirect_uri)
     sp = spotipy.Spotify(token)
     return sp
 
-def get_new_music(saved_data, api_data, sp):
+def get_new_music(saved_data, api_data):
     """
         Compares saved_data and api_data, compiles a dict of artists with new music.
         :param saved_data: a dict of indexed data from data.txt
         :param api_data: a dict of up-to-date data from the API
-        :param sp: the Spotipy object
         :return: new_music (a dict of new music)
     """
     new_music = {} # a dict to represent artists with new music with titles of the new singles/albums, structured differently than other dicts like api_data
@@ -60,26 +60,21 @@ def get_new_music(saved_data, api_data, sp):
     for artist in api_data.keys(): # artist is an artist_id in this case
         if artist in saved_data.keys(): # artist has been previously indexed
             # see if there is a discrepancy between the two regarding the saved albums/singles
-            if sorted(api_data[artist]["singles"]) != sorted(saved_data[artist]["singles"]) or \
-                sorted(api_data[artist]["albums"]) != sorted(saved_data[artist]["albums"]): # we use sorted here because sometimes the order of album ids from the api changes
-                # at this point we know the artist either has new music, or one their albums/singles has gotten updated 
-                # if an album has been updated that indicates mixing changes for the songs, we do not want to add it to new music in that case
-                new_albums = list(set(api_data[artist]["albums"]) - set(saved_data[artist]["albums"])) # set difference
-                new_singles = list(set(api_data[artist]["singles"]) - set(saved_data[artist]["singles"])) # set difference
-                
-                saved_album_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["albums"]] # turn list of ids from api to names
-                saved_single_names = [sp.album(album_id)["name"] for album_id in saved_data[artist]["singles"]]
+            if sorted(api_data[artist]["singles"].keys()) != sorted(saved_data[artist]["singles"].keys()) or \
+                sorted(api_data[artist]["albums"].keys()) != sorted(saved_data[artist]["albums"].keys()): # we use sorted here because sometimes the order of album ids from the api changes
+                # at this point we know the artist either has new music, or one their albums/singles has been duplicated/changed
+                # if an album has been duplicated/changed we do not want to add it to new_music
+                new_albums = list(set(api_data[artist]["albums"].keys()) - set(saved_data[artist]["albums"].keys())) # set difference
+                new_singles = list(set(api_data[artist]["singles"].keys()) - set(saved_data[artist]["singles"].keys())) # set difference
 
                 # remove albums who have the same name as another saved album
                 for id in new_albums[:]: # for id in a copy of new_albums
-                    name = sp.album(id)["name"]
-                    if name in saved_album_names: # the name has previously been indexed
+                    if api_data[artist]["albums"][id].lower() in [name.lower() for name in saved_data[artist]["albums"].values()]: # the "new" name appears in the indexed album names
                         new_albums.remove(id)
 
                 # remove singles who have the same name as another saved single
                 for id in new_singles[:]: # for id in a copy of new_albums
-                    name = sp.album(id)["name"]
-                    if name in saved_single_names: # the name has previously been indexed
+                   if api_data[artist]["singles"][id].lower() in [name.lower() for name in saved_data[artist]["singles"].values()]: # the "new" name appears in the indexed single names
                         new_singles.remove(id)
 
                 if new_albums + new_singles != []: # new music was found, add it to the new_music dict
@@ -93,25 +88,22 @@ def get_new_music(saved_data, api_data, sp):
         json.dump(api_data, out_file) # update indexed data with up-to-date data
 
     return new_music
-
+    
 def get_latest(artist, album_type, sp):
     """
         Calls the API for information about the given artist's album_type. Creates a list
         of the latest items of album_type up to a max of 5, skipping duplicates.
-        * Performs one API call per artist
         :param artist: the artist id to look up (string)
         :param album_type: either "single" or "album"
         :param sp: the Spotipy object
-        :return: items (a list of up to 5 items of album_type requested for the artist)
+        :return: music (a dict of 5 album_types where the key:value is album_id:album_name)
     """
-    items = []
-    results = sp.artist_albums(artist, album_type, country="US") # calls API and gets a dict
+    music = {}
+    results = sp.artist_albums(artist, album_type, country="US", limit=5) # calls API and gets a dict
     for item in results["items"]:
-        if len(items) == 5: # get up to last 5 items of album_type for artist
-            break
-        if item["id"] not in items:
-            items.append(item["id"])
-    return items
+        music[item["id"]] = item["name"]
+    
+    return music
 
 def update_followed_artists(sp):
     """
@@ -152,7 +144,7 @@ def update_followed_artists(sp):
         with open(file_name, 'w') as out_file:
             json.dump(api_data, out_file)
     else:
-        return get_new_music(saved_data, api_data, sp) # compare data indexed to new data from api and collect new music
+        return get_new_music(saved_data, api_data) # compare data indexed to new data from api and collect new music
 
 def send_email(sender_email, sender_password, receiver_email, playlist_id):
     """
@@ -202,6 +194,7 @@ def add_to_playlist(username, playlist_id, new_music, app_info, sp):
         :param new_music: a dictionary of new music from update_followed_artists()
         :param app_info: the lines from app_info.txt, obtained in read_app_info()
         :param sp: the Spotipy object
+        :return: the newly created playlist id, or None if it already existed
     """
     album_ids = []
     # turn dictionary of new music into list of album ids
@@ -210,6 +203,7 @@ def add_to_playlist(username, playlist_id, new_music, app_info, sp):
         album_ids.extend(new_music[artist_id]['singles'])
     
     # turn the list of album ids into a list of all the song ids from each album
+    # calls the API to get the songs from each album id
     song_ids = []
     for album_id in album_ids:
         for song in sp.album(album_id)["tracks"]["items"]: # call API to get all the song ids within the given album_id
@@ -225,8 +219,14 @@ def add_to_playlist(username, playlist_id, new_music, app_info, sp):
         for i in range(0, 8):
             app_info_fp.write(app_info[i] + '\n')
 
-        # call the API and create a playlist then return a dict of related info
+        # call the API and create a private playlist then return a dict of related info
         playlist = sp.user_playlist_create(username, "New Music", False, "New music from music notifier, checked daily and updated here.")
+        
+        # add a playlist cover
+        file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "playlist_cover.jpg")
+        with open(file_name, "rb") as img_file:
+            image_data = base64.b64encode(img_file.read())
+            sp.playlist_upload_cover_image(playlist["id"], image_data)
         
         app_info_fp.write(playlist["id"])
         app_info_fp.close()
