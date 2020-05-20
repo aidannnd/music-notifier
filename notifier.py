@@ -6,6 +6,7 @@ from email.mime.multipart import MIMEMultipart
 import base64
 import json
 import os
+import datetime
 
 def read_app_info():
     """
@@ -48,6 +49,16 @@ def set_credentials(username, client_id, client_secret, redirect_uri):
     sp = spotipy.Spotify(token)
     return sp
 
+def recent_release_date(id):
+    """
+    Gets the given album_id release date from the API and checks if it was released within the last two days, if it is returns True, False otherwise.
+    """
+    date_parts = sp.album(id)["release_date"].split('-') # formatted: 'XXXX-XX-XX'
+    release_date = datetime.date(int(date_parts[0]), int(date_parts[1]), int(date_parts[2]))
+    if datetime.date.today() - datetime.timedelta(days=2) > release_date: # was not released in past 2 days
+        return False
+    return True
+
 def get_new_music(saved_data, api_data):
     """
         Compares saved_data and api_data, compiles a dict of artists with new music.
@@ -62,19 +73,19 @@ def get_new_music(saved_data, api_data):
             # see if there is a discrepancy between the two regarding the saved albums/singles
             if sorted(api_data[artist]["singles"].keys()) != sorted(saved_data[artist]["singles"].keys()) or \
                 sorted(api_data[artist]["albums"].keys()) != sorted(saved_data[artist]["albums"].keys()): # we use sorted here because sometimes the order of album ids from the api changes
-                # at this point we know the artist either has new music, or one their albums/singles has been duplicated/changed
-                # if an album has been duplicated/changed we do not want to add it to new_music
+                
+                # get a list of albums that appear in the new data that do not appear in the indexed data
                 new_albums = list(set(api_data[artist]["albums"].keys()) - set(saved_data[artist]["albums"].keys())) # set difference
                 new_singles = list(set(api_data[artist]["singles"].keys()) - set(saved_data[artist]["singles"].keys())) # set difference
 
-                # remove albums who have the same name as another saved album
+                # remove albums that were not released in the last 2 days
                 for id in new_albums[:]: # for id in a copy of new_albums
-                    if api_data[artist]["albums"][id].lower() in [name.lower() for name in saved_data[artist]["albums"].values()]: # the "new" name appears in the indexed album names
+                    if not recent_release_date(id):
                         new_albums.remove(id)
 
-                # remove singles who have the same name as another saved single
+                # remove singles that were not released in the last 2 days
                 for id in new_singles[:]: # for id in a copy of new_albums
-                   if api_data[artist]["singles"][id].lower() in [name.lower() for name in saved_data[artist]["singles"].values()]: # the "new" name appears in the indexed single names
+                   if not recent_release_date(id):
                         new_singles.remove(id)
 
                 if new_albums + new_singles != []: # new music was found, add it to the new_music dict
