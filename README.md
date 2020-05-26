@@ -3,24 +3,26 @@ Spotify New Music Notifier
 
 Note: this project is still a work in progress
 
-This Python script will alert the user about new music from artists they follow by calling the Spotify API using Spotipy. It collects the information, compares it against previously indexed artists, and notifies the user about new music with an email if they would like. The new music is also added to a playlist on the user's account.
+This Python script adds new releases from artists users follow to a playlist on their account by calling the Spotify API using Spotipy. It collects followed artist's releases, determines which are new, and adds them to the correct playlists. If a user would like, emails can be sent to notify them of new music as well.
 
 ## How To Use
+
+This script is built to be run for multiple users whose API access tokens are stored as cache files.
+To run it for multiple users, or yourself:
 
 1. Follow all the artists on Spotify you want to be notified about.
 2. Create a new app on the Spotify Developers Dashboard and give it a Redirect URI (I use "http://localhost:8080/")
 	1. On the app's dashboard, you will find the Client ID and Secret to put in app_info.txt
 3. Replace the lines of app_info.txt with your information
-	1. Your Spotify username will be a string of numbers if you signed up with Facebook, otherwise, it will be the username you use to log in
-	2. The lines regarding email are optional (refer to step 8), if you would not like email notifications do not touch these
+	1. For email functionality, create a new throwaway email address and put your log-in details in the text file, be sure to enable third-party app access
 4. Install Spotipy
-5. Run the script with Python once, it will have you log in through a browser and the program will perform an initial index of all your followed artists to data.txt
-	1. The program will open a link in-browser, wait several seconds then copy the URL in the address bar and paste it into the program as input (this will generate a cache file for you)
-7. The script and all associated files will then need to be put in a service that runs it on an interval (every day, once a week, etc), such as a scheduler
-	1. I use pythonanywhere because it's easy to set up, just be sure to "pip install --user Spotipy" through the Bash console
-8. If you would like email notifications, create a new throwaway Gmail account for sending emails (enable third-party app access), fill in app_info.txt
-	1. The receiver address is likely to be your personal email address depending on where you want the emails about new music to be sent
+5. Create cache files for all the users you want with generate_cache.py and put them in the cache_files folder
+	1. This file creates a Spotipy cache file for the user currently signed into the default browser and pairs it with the username console input
+	2. After typing a username, the file will open a link in-browser, wait several seconds then copy the URL in the address bar and paste it into the program as input
+6. The notifier.py script assumes it will be run once a day after midnight
+	1. The script and all associated files can be put in a service that runs it every day, such as a scheduler
+	2. I use pythonanywhere because it's easy to set up, just be sure to "pip install --user Spotipy" through the Bash console
 
 ## How It Works
 
-The script will call out to the API for each artist indexed in a file called data.txt as JSON. If it is the first time being run it will generate this file for use the next time the script is run. If there are any differences between what is indexed and what is received from the API, that indicates that there is new music. The script will collect this music and add every song to a playlist called "New Music" on the user's account, if the playlist does not exist yet, it will be created and its id will be stored in app_info.txt. An email notification will also be sent to the user if it is set up.
+The script stores information about users from the cache_files folder in user_info.txt as json. It will add new users and update existing ones before calling the API for every artist followed by the userbase as a whole. It collects each artist's music and determines which is new by comparing the release date with today's date. If new music is found, it is added to the respective user's playlist. If no playlist exists for a user, the script creates one on their account. Any new music is logged as a new dated file in the logs folder. Finally, email notifications are sent out to users who got new music and have an email paired with their username.
