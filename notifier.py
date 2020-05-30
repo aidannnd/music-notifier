@@ -181,7 +181,7 @@ def get_new_music(user_info):
                     in_file = open(file_name) # will try to open file
                     yesterday_log = json.load(in_file)
 
-                    #TODO this is inefficient, could be improved
+                    #TODO this is inefficient, could be improved (also running for removed?)
                     for user in yesterday_log.keys(): # loop over each user, see if the album id was added for any of them
                         if album["id"] in yesterday_log[user]: # album has already been added to users who follow the artist
                             raise Exception("Album already added")
@@ -217,11 +217,11 @@ def update_playlists(user_info, new_music, spotipy_objects, log_information):
         
         song_ids = []
         for album in new_music[artist_id]:
+            log_information[username].append(album["id"]) # create logs
             for song in sp.album(album["id"])["tracks"]["items"]: # call API to get all the song ids for the given album id
                 song_ids.append(song["id"])
         for username in users_to_update: # add songs to the users playlist
             spotipy_objects[username].user_playlist_add_tracks(username, user_info[username]["playlist_id"], song_ids) # add tracks
-            log_information[username].append(album["id"]) # create logs
 
     generate_logs(log_information)
 
