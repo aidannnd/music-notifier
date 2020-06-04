@@ -217,11 +217,12 @@ def update_playlists(user_info, new_music, spotipy_objects, log_information):
         
         song_ids = []
         for album in new_music[artist_id]:
-            log_information[username].append(album["id"]) # create logs
+            # create a list of new song URIs
             for song in sp.album(album["id"])["tracks"]["items"]: # call API to get all the song ids for the given album id
                 song_ids.append(song["id"])
-        for username in users_to_update: # add songs to the users playlist
-            spotipy_objects[username].user_playlist_add_tracks(username, user_info[username]["playlist_id"], song_ids) # add tracks
+            for username in users_to_update: # add songs to the users playlist
+                log_information[username].append(album["id"]) # create logs
+                spotipy_objects[username].user_playlist_add_tracks(username, user_info[username]["playlist_id"], song_ids) # add tracks
 
     generate_logs(log_information)
 
