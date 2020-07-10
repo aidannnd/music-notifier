@@ -176,6 +176,11 @@ def get_new_music(user_info):
             # this is what determines if an album is new or not
             if release_date + timedelta(days = 1) >= date.today(): # was released today or yesterday
                 # if it was released yesterday, we need to make sure it was after the script ran (checks logs to do this)
+
+                logs_path = os.getcwd() + "\\logs"
+                if not os.path.isdir(logs_path): # logs folder does not exist
+                    os.mkdir(logs_path)
+
                 file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs\\" + str(date.today() - timedelta(days = 1)) + ".txt")
                 try: # see if there was a log generated yesterday
                     in_file = open(file_name) # will try to open file
@@ -230,6 +235,11 @@ def update_playlists(user_info, new_music, spotipy_objects, log_information):
 
 def generate_logs(log_information):
     """Write log_information as a json to a new dated text file in the logs folder"""
+
+    logs_path = os.getcwd() + "\\logs"
+    if not os.path.isdir(logs_path): # logs folder does not exist
+        os.mkdir(logs_path)
+    
     file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs\\" + str(date.today()) + ".txt")
     with open(file_name, 'w') as out_file: # write to user_info
         json.dump(log_information, out_file)
@@ -285,7 +295,11 @@ if __name__ == '__main__':
     spotipy_objects = {} # to be a dict formatted as username:spotipy_object
     users = [] # will be a list of usernames from the cache_files folder
 
-    for cache_name in os.listdir(os.getcwd() + "\\cache_files"): # for cache file in the cache_files folder
+    cache_path = os.getcwd() + "\\cache_files"
+    if not os.path.isdir(cache_path): # cache_files folder does not exist
+        os.mkdir(cache_path)
+
+    for cache_name in os.listdir(cache_path): # for cache file in the cache_files folder
         username = cache_name[7:].strip() # all cache files are formatted ".cache-username"
 
         sp = set_credentials(username, app_info[0], app_info[1], app_info[2]) # create spotipy object and set credentials
