@@ -1,8 +1,6 @@
 Spotify New Music Notifier
 ==================
 
-Note: this project is still a work in progress
-
 This Python script adds new releases from artists users follow to a playlist on their account by calling the Spotify API using Spotipy. It collects followed artist's releases, determines which are new, and adds them to the correct playlists. If a user would like, emails can be sent to notify them of new music as well.
 
 ## How To Use

@@ -82,8 +82,8 @@ def create_playlist(username, sp):
         :param sp: a Spotipy object
         :return: the playlist id of the playlist just created (str)
     """
-    playlist = sp.user_playlist_create(username, "New Music", False, "New music from music notifier, checked daily and updated here.")
-        
+    playlist = sp.user_playlist_create(username, "New Music", False, "New music from artists you follow, checked daily and updated by music notifier.")
+    
     # add a playlist cover
     file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "playlist_cover.jpg")
     with open(file_name, "rb") as img_file:
@@ -215,8 +215,8 @@ def update_playlists(user_info, new_music, spotipy_objects, log_information):
                 users_to_email.add(username)
                 users_to_update.append(username)
         
-        song_ids = []
         for album in new_music[artist_id]:
+            song_ids = []
             # create a list of new song URIs
             for song in sp.album(album["id"])["tracks"]["items"]: # call API to get all the song ids for the given album id
                 song_ids.append(song["id"])
