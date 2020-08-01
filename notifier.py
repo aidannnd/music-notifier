@@ -6,7 +6,7 @@ from email.mime.multipart import MIMEMultipart
 import base64
 import json
 import os
-from datetime import datetime, timedelta, date
+from datetime import timedelta, date
 
 def read_app_info():
     """
@@ -16,7 +16,6 @@ def read_app_info():
     # get info from app_info.txt
     file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_info.txt") # adds the path up to the file for running different working directory settings
     with open(file_name) as app_info_fp:
-    
         client_id = app_info_fp.readline().strip()
         client_secret = app_info_fp.readline().strip()
         redirect_uri = app_info_fp.readline().strip()
@@ -24,6 +23,11 @@ def read_app_info():
         sender_password = app_info_fp.readline().strip()
 
     return [client_id, client_secret, redirect_uri, sender_email, sender_password]
+
+def check_for_dir(name):
+    """ Creates the given name as a directory if it does not exist, expects a '/' at the end of the name """
+    if not os.path.isdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), name)): # cache_files folder does not exist
+        os.mkdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), name))
 
 def set_credentials(username, client_id, client_secret, redirect_uri):
     """
@@ -36,7 +40,7 @@ def set_credentials(username, client_id, client_secret, redirect_uri):
     """
     scope = "playlist-modify-private playlist-modify-public user-follow-read ugc-image-upload"
 
-    path = os.getcwd() + "\\cache_files\\.cache-" + username # look in cache_files folder for a previously generated cache file for the username
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache_files/.cache-" + username) # look in cache_files
     token = util.prompt_for_user_token(username, scope, client_id, client_secret, redirect_uri, path)
     sp = spotipy.Spotify(token)
     return sp
@@ -56,15 +60,15 @@ def update_user_info(username, sp):
         user_info = json.load(in_file)
     except: # file not created yet
         user_info = {}
-        
+
     if username not in user_info.keys():
         user_info[username] = {}
         user_info[username]["playlist_id"] = create_playlist(username, sp) # creates playlist on the account and returns the id
         user_info[username]["email"] = input("Enter new user email: ") # get user email from console
-     
+
     # update followed_artists for the user
     user_info[username]["followed_artists"] = get_followed_artists(username, sp) # gets a dict of form artist_id:artist_name
-    
+
     try: # will close the file if it was opened previously
         in_file.close()
     except:
@@ -72,7 +76,7 @@ def update_user_info(username, sp):
 
     with open(file_name, 'w') as out_file: # write to user_info.txt, create file if it does not exist
         json.dump(user_info, out_file)
-    
+
     return user_info
 
 def create_playlist(username, sp):
@@ -83,13 +87,13 @@ def create_playlist(username, sp):
         :return: the playlist id of the playlist just created (str)
     """
     playlist = sp.user_playlist_create(username, "New Music", False, "New music from artists you follow, checked daily and updated by music notifier.")
-    
+
     # add a playlist cover
     file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "playlist_cover.jpg")
     with open(file_name, "rb") as img_file:
         image_data = base64.b64encode(img_file.read())
         sp.playlist_upload_cover_image(playlist["id"], image_data)
-    
+
     return playlist["id"]
 
 def get_followed_artists(username, sp):
@@ -105,7 +109,7 @@ def get_followed_artists(username, sp):
     followed_artists = {} # will represent information about the user's followed artists
     while num_recieved_artists == 50: # the last call to the API will get 50 or less artists
         artists_dict = sp.current_user_followed_artists(50, after_id) # call API to get a dictionary of 50 followed artists
-        try: 
+        try:
             after_id = artists_dict["artists"]["cursors"]["after"] # update after_id for use in next call if necessary
             num_recieved_artists = len(artists_dict["artists"]["items"])
 
@@ -146,7 +150,7 @@ def get_new_music(user_info):
     print("Calling API for new music")
     log_information = {}
     new_music = {}
-    
+
     followed_artists = set()
     for username in user_info.keys(): # fill followed_artists with ids of all followed artists for all users, ignore duplicaates
         followed_artists.update(user_info[username]["followed_artists"].keys())
@@ -156,32 +160,30 @@ def get_new_music(user_info):
         # call api for each artist and get their last 5 albums and singles
         albums = sp.artist_albums(artist_id, "album", country="US", limit=5)
         singles = sp.artist_albums(artist_id, "single", country="US", limit=5)
-        
+
         # fill a list with all the music received for the artist
         music = []
         music.extend(albums["items"])
         music.extend(singles["items"])
-        
+
         for album in music:
             # get the release date and turn it into a date type
             date_parts = album["release_date"].split('-') # usually formatted: "XXXX-XX-XX"
             try:
                 release_date = date(int(date_parts[0]), int(date_parts[1]), int(date_parts[2]))
-            except: 
+            except:
                 # the format of the release_date is not always year-month-day
                 # the release_date_precision for albums can vary, for example, it may only include the year
                 # in this case we ignore the release, assuming all newer music has the necessary metadata
                 continue
-            
+
             # this is what determines if an album is new or not
             if release_date + timedelta(days = 1) >= date.today(): # was released today or yesterday
                 # if it was released yesterday, we need to make sure it was after the script ran (checks logs to do this)
 
-                logs_path = os.getcwd() + "\\logs"
-                if not os.path.isdir(logs_path): # logs folder does not exist
-                    os.mkdir(logs_path)
+                check_for_dir("logs/")
 
-                file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs\\" + str(date.today() - timedelta(days = 1)) + ".txt")
+                file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs/" + str(date.today() - timedelta(days = 1)) + ".txt")
                 try: # see if there was a log generated yesterday
                     in_file = open(file_name) # will try to open file
                     yesterday_log = json.load(in_file)
@@ -190,7 +192,7 @@ def get_new_music(user_info):
                     for user in yesterday_log.keys(): # loop over each user, see if the album id was added for any of them
                         if album["id"] in yesterday_log[user]: # album has already been added to users who follow the artist
                             raise Exception("Album already added")
-                    
+
                     # the release has not been previously added. Add the artist if necessary, then the album
                     if artist_id in new_music.keys():
                         new_music[artist_id].append(album)
@@ -212,6 +214,7 @@ def update_playlists(user_info, new_music, spotipy_objects, log_information):
         :param log_information: a dict of usernames from user_info formatted username:[]
         :return: users_to_email (a set of users who had their playlists updated)
     """
+    print("Updating playlists")
     users_to_email = set()
     for artist_id in new_music.keys():
         users_to_update = [] # a list of users whose playlists we will update with the specific new item
@@ -219,7 +222,7 @@ def update_playlists(user_info, new_music, spotipy_objects, log_information):
             if artist_id in user_info[username]["followed_artists"].keys(): # the user follows one of the artists who has new music
                 users_to_email.add(username)
                 users_to_update.append(username)
-        
+
         for album in new_music[artist_id]:
             song_ids = []
             # create a list of new song URIs
@@ -234,13 +237,10 @@ def update_playlists(user_info, new_music, spotipy_objects, log_information):
     return users_to_email
 
 def generate_logs(log_information):
-    """Write log_information as a json to a new dated text file in the logs folder"""
+    """ Write log_information as a json to a new dated text file in the logs folder """
+    check_for_dir("logs/")
 
-    logs_path = os.getcwd() + "\\logs"
-    if not os.path.isdir(logs_path): # logs folder does not exist
-        os.mkdir(logs_path)
-    
-    file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs\\" + str(date.today()) + ".txt")
+    file_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs/" + str(date.today()) + ".txt")
     with open(file_name, 'w') as out_file: # write to user_info
         json.dump(log_information, out_file)
 
@@ -295,11 +295,9 @@ if __name__ == '__main__':
     spotipy_objects = {} # to be a dict formatted as username:spotipy_object
     users = [] # will be a list of usernames from the cache_files folder
 
-    cache_path = os.getcwd() + "\\cache_files"
-    if not os.path.isdir(cache_path): # cache_files folder does not exist
-        os.mkdir(cache_path)
+    check_for_dir("cache_files/")
 
-    for cache_name in os.listdir(cache_path): # for cache file in the cache_files folder
+    for cache_name in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache_files/")): # for cache file in the cache_files folder
         username = cache_name[7:].strip() # all cache files are formatted ".cache-username"
 
         sp = set_credentials(username, app_info[0], app_info[1], app_info[2]) # create spotipy object and set credentials
