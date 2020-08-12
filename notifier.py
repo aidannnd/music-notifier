@@ -109,13 +109,14 @@ def get_followed_artists(username, sp):
     followed_artists = {} # will represent information about the user's followed artists
     while num_recieved_artists == 50: # the last call to the API will get 50 or less artists
         artists_dict = sp.current_user_followed_artists(50, after_id) # call API to get a dictionary of 50 followed artists
-        try:
-            after_id = artists_dict["artists"]["cursors"]["after"] # update after_id for use in next call if necessary
-            num_recieved_artists = len(artists_dict["artists"]["items"])
+        
+        after_id = artists_dict["artists"]["cursors"]["after"] # update after_id for use in next call if necessary
+        num_recieved_artists = len(artists_dict["artists"]["items"])
 
-            for artist in artists_dict["artists"]["items"]: # populate followed_artists
-                followed_artists[artist["id"]] = artist["name"]
-        except: # edge case for if user is following a number of artists divisible by 50
+        for artist in artists_dict["artists"]["items"]: # populate followed_artists
+            followed_artists[artist["id"]] = artist["name"]
+
+        if after_id is None: # edge case for if user is following a number of artists divisible by 50
             break
 
     return followed_artists
