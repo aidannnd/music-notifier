@@ -18,11 +18,12 @@ To run it for multiple users, or yourself:
 2. Create a new app on the Spotify Developers Dashboard and give it a Redirect URI (I use "http://localhost:8080/")
 	1. On the app's dashboard, you will find the Client ID and Secret to put in app_info.txt
 3. Replace the lines of app_info.txt with your information
-	1. For email functionality, create a new throwaway email address and put your log-in details in the text file, be sure to enable third-party app access
-4. Run pip install Spotipy
-5. Create cache files for all the users you want with generate_cache.py and put them in the cache_files folder
-	1. This file creates a Spotipy cache file for the user currently signed into the default browser and pairs it with the username console input
-	2. After typing a username, the file will open a link in-browser, wait several seconds then copy the URL in the address bar and paste it into the program as input
+	1. For email functionality, create a new throwaway sender email address and put its log-in details, as well as your personal email, into app_info.txt
+	2. Enable third-party app access on your throwaway sender email
+4. Run pip install Spotipy on the computer running the python script
+5. Create cache files for all the users you are running it for with generate_cache.py and put them in the cache_files folder
+	1. This file creates a Spotipy cache file for the user currently signed into your computer's default browser and pairs it with the username input through console
+	2. After entering a username, the file will open a link in-browser, wait several seconds then copy the URL in the address bar and paste it into the program as input
 6. The notifier.py script assumes it will be run once a day after midnight, that's typically when most new music is released
 	1. The script and all associated files can be put in a service that runs it every day, such as a scheduler
 	2. I use pythonanywhere because it's easy to set up, just be sure to "pip install --user Spotipy" through the Bash console
